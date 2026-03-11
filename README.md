@@ -4,6 +4,8 @@
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.11-orange?logo=tensorflow&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.20+-red?logo=streamlit&logoColor=white)
 
+**Live Application:** [openforensics.streamlit.app](https://openforensics.streamlit.app/)
+
 A comprehensive deep learning pipeline and interactive web dashboard for detecting deepfake (forged) face images, built around the "OpenForensics" dataset framework.
 
 ## 🚀 Overview
