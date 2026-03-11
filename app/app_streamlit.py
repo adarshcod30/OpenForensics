@@ -163,8 +163,6 @@ def make_gradcam(model, img_array, class_idx=None, layer_name=None):
 # -----------------------
 # Streamlit UI
 # -----------------------
-st.set_page_config(page_title="OpenForensics — Deepfake Detector", layout="wide")
-st.title("OpenForensics — Deepfake Detector")
 st.markdown("Dashboard: initial vs fine-tuned models, evaluation artifacts, single-image prediction with Grad-CAM overlay.")
 
 # Sidebar

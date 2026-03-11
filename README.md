@@ -57,18 +57,27 @@ Due to GitHub's file size limits, the core dataset (>190,000 images) and the fro
 *   **Dataset:** Download the official [OpenForensics Dataset from Zenodo](https://zenodo.org/record/5528418) and place the `Train`, `Validation`, and `Test` folders into a root `Dataset/` directory.
 *   **Model Weights:** Pre-trained model weights should be placed in `runs/exp1/best_model.keras`.
 
-## 💻 Usage
+## 💻 Usage & Deployment
 
-### 1. Launch the Dashboard
+### 1. Launch the Cloud-Ready Dashboard
 To start the interactive web application to evaluate models and visualize Grad-CAM heatmaps:
 ```bash
 streamlit run app/app_streamlit.py
 ```
+> **Note:** The UI has been configured with a custom `.streamlit/config.toml` enforcing a professional Dark Mode and an optimized wide layout. Keep these settings for production deployment.
 
 ### 2. Command-Line Inference
-To predict a single image rapidly via the terminal:
+To predict a single image rapidly via the terminal script:
 ```bash
 python scripts/predict_image.py path/to/your/image.jpg --model runs/exp1/best_model.keras
+```
+**Expected Output Example:**
+```json
+{
+  "image": "path/to/your/image.jpg",
+  "probability_real": 0.0523,
+  "predicted_label": "Fake"
+}
 ```
 
 ### 3. Training & Fine-Tuning

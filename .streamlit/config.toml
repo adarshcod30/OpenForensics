@@ -1,18 +1,11 @@
 [theme]
-# Primary accent color
-primaryColor = "#2E86C1"
-# Background color for the main content area
-backgroundColor = "#FFFFFF"
-# Background color used for the sidebar
-secondaryBackgroundColor = "#F2F4F4"
-# Text color
-textColor = "#2C3E50"
-# Font style
-font = "sans serif"
+base="dark"
+primaryColor="#2E86C1"
+font="sans serif"
 
 [server]
 # Enable detailed error messages in the browser
-showErrorDetails = true
+showErrorDetails = false
 
 [browser]
 # Enable gathering usage statistics globally (if deployed)
