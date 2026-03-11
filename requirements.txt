@@ -1,0 +1,8 @@
+tensorflow==2.11.0 ; platform_machine != 'arm64'
+tensorflow-macos==2.11.0 ; platform_machine == 'arm64'
+scikit-learn>=1.2.0
+matplotlib>=3.6.0
+streamlit>=1.20.0
+pandas>=1.5.0
+Pillow>=9.4.0
+numpy<2.0.0

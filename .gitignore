@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS Specific
+.DS_Store
+
+# Virtual Environments
+venv/
+env/
+.env
+.venv
+ENV/
+env.bak/
+venv.bak/
+
+# Dataset Files (Too large for GitHub)
+Dataset/
+runs/exp1/
+runs/exp1_finetune/
+runs_exp1_finetune_submission.tar.gz
+
+# Deep Learning Weight Files (Too large for standard GitHub, use Git LFS or external host)
+*.keras
+*.h5
+*.hdf5
+*.pb
+
+# Logs and Checkpoints
+logs/
+tensorboard/
+*.log
+
+# Jupyter Notebooks
+.ipynb_checkpoints
