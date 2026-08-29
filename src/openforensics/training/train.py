@@ -64,6 +64,20 @@ def _callbacks(cfg: RunConfig, stage: str, ckpt: Path):
     ]
 
 
+def _write_history(path, history):
+    """Persist a fit history, but never clobber a good one with nothing.
+
+    A resumed stage whose epochs are already complete returns immediately with
+    an empty `history`. Writing that would destroy the record of the epochs
+    that actually ran.
+    """
+    data = {k: [float(x) for x in v] for k, v in history.history.items()}
+    if not data and path.exists():
+        print(f"  keeping existing {path.name} (resumed stage ran no new epochs)")
+        return
+    path.write_text(json.dumps(data, indent=2))
+
+
 def prepare_data(cfg: RunConfig):
     d = cfg.data
     run_dir = cfg.run_dir
@@ -136,15 +150,25 @@ def _main(cfg: RunConfig, stage2: bool = True):
         callbacks=_callbacks(cfg, "stage1", ckpt1), verbose=2,
     )
     print(f"[stage 1] done in {(time.time()-t0)/60:.1f} min")
-    (cfg.run_dir / "stage1_history.json").write_text(
-        json.dumps({k: [float(x) for x in v] for k, v in h1.history.items()}, indent=2)
-    )
+    _write_history(cfg.run_dir / "stage1_history.json", h1)
 
     if not stage2:
         model.save(cfg.run_dir / "final.keras")
         return model
 
     # ---------------- stage 2: fine-tune backbones ----------------
+    # Start stage 2 from stage 1's *best* epoch, not its last. EarlyStopping
+    # restores best weights only when it actually observed the training; a
+    # resumed stage with no epochs left never does, so make it explicit and
+    # the behaviour identical either way.
+    if ckpt1.exists():
+        from ..models.layers import PreprocessLayer
+        model = keras.models.load_model(
+            str(ckpt1), compile=False,
+            custom_objects={"PreprocessLayer": PreprocessLayer},
+        )
+        print(f"[stage 2] loaded stage-1 best checkpoint: {ckpt1.name}")
+
     changed = set_backbone_trainable(
         model, backbones=cfg.model.backbones,
         unfreeze_last=cfg.train.unfreeze_last,
@@ -165,9 +189,7 @@ def _main(cfg: RunConfig, stage2: bool = True):
         callbacks=_callbacks(cfg, "stage2", ckpt2), verbose=2,
     )
     print(f"[stage 2] done in {(time.time()-t0)/60:.1f} min")
-    (cfg.run_dir / "stage2_history.json").write_text(
-        json.dumps({k: [float(x) for x in v] for k, v in h2.history.items()}, indent=2)
-    )
+    _write_history(cfg.run_dir / "stage2_history.json", h2)
 
     model.save(cfg.run_dir / "final.keras")
     res = model.evaluate(test_ds, return_dict=True, verbose=0)
