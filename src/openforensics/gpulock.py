@@ -21,11 +21,15 @@ from __future__ import annotations
 import errno
 import fcntl
 import os
-import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-LOCK_PATH = Path(tempfile.gettempdir()) / "openforensics-gpu.lock"
+# A fixed path, deliberately NOT tempfile.gettempdir(). TMPDIR is per-user on
+# macOS and per-session under some sandboxes, so two jobs started from
+# different shells would take locks on different files and fail to see each
+# other -- which is exactly the situation the lock exists to prevent.
+# Override with OF_GPU_LOCK when a shared /tmp is unavailable.
+LOCK_PATH = Path(os.environ.get("OF_GPU_LOCK", "/tmp/openforensics-gpu.lock"))
 
 
 class GPUBusy(RuntimeError):

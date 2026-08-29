@@ -41,3 +41,18 @@ def test_env_var_bypasses(tmp_path, monkeypatch):
         monkeypatch.setenv("OF_NO_GPU_LOCK", "1")
         with gpu_lock("second", path=lock):
             pass
+
+
+def test_lock_path_is_stable_across_tmpdir_changes(monkeypatch):
+    """The default must not follow TMPDIR.
+
+    Two jobs launched from shells with different TMPDIR values would
+    otherwise lock different files and never see each other.
+    """
+    import importlib
+    monkeypatch.setenv("TMPDIR", "/some/session/specific/dir")
+    monkeypatch.delenv("OF_GPU_LOCK", raising=False)
+    import openforensics.gpulock as g
+    importlib.reload(g)
+    assert "/some/session/specific/dir" not in str(g.LOCK_PATH)
+    assert str(g.LOCK_PATH) == "/tmp/openforensics-gpu.lock"
