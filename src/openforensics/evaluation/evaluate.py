@@ -118,8 +118,27 @@ def _main(a):
     print(f"test @{threshold:.3f}      acc {at_thr['accuracy']:.4f}  AUC {at_thr['roc_auc']:.4f}  "
           f"real-called-fake {at_thr['real_called_fake']}")
 
+    # Raw scores are saved so any later threshold question is answered by
+    # arithmetic rather than by re-running inference over the whole split.
+    np.savez_compressed(
+        out / "scores.npz",
+        val_probs=p_val, val_probs_calibrated=p_val_cal, val_labels=y_val,
+        test_probs=p_test, test_labels=y_test, temperature=temperature,
+    )
+
+    # The whole operating-point curve, not just the chosen point. For a tool
+    # whose output is an accusation, the caller needs to see what lowering the
+    # false-accusation rate costs in missed forgeries.
+    sweep = []
+    for t in np.round(np.arange(0.05, 0.96, 0.05), 2):
+        r = M.summarise(y_test, p_test, float(t))
+        sweep.append({"threshold": float(t), "accuracy": r["accuracy"],
+                      "real_called_fake": r["real_called_fake"],
+                      "fake_called_real": r["fake_called_real"]})
+
     report = {
         "model": str(a.model_path or (run_dir / "final.keras")),
+        "threshold_sweep": sweep,
         "manifest_digest": mf.digest(),
         "tta": a.tta,
         "calibration": {"temperature": temperature,
@@ -144,7 +163,14 @@ def _main(a):
             print(f"  {name:<18} acc {r['accuracy']:.4f}  AUC {r['roc_auc']:.4f}{mark}")
 
     (out / "report.json").write_text(json.dumps(report, indent=2))
-    print(f"\nwritten -> {out/'report.json'}")
+    print("\nthreshold trade-off on test (Real is the positive class):")
+    print(f"  {'thresh':>7} {'accuracy':>9} {'real→fake':>11} {'fake→real':>11}")
+    for row in sweep:
+        mark = "  <- chosen" if abs(row["threshold"] - threshold) < 0.025 else ""
+        print(f"  {row['threshold']:>7.2f} {row['accuracy']:>9.4f} "
+              f"{row['real_called_fake']:>11} {row['fake_called_real']:>11}{mark}")
+
+    print(f"\nwritten -> {out/'report.json'}  (+ scores.npz)")
     return report
 
 

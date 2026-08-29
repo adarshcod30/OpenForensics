@@ -78,7 +78,9 @@ def build_card(run_dir: Path, weights_name: str, info: dict) -> dict:
     return card
 
 
-def model_card(card: dict, backbones: list[str], version: str) -> str:
+def model_card(card: dict, backbones: list[str], version: str,
+               report: dict | None = None) -> str:
+    report = report or {}
     d = card.get("decision", {})
     m = card.get("test_metrics", {})
     metrics_block = (
@@ -89,6 +91,54 @@ def model_card(card: dict, backbones: list[str], version: str) -> str:
         f"({m['false_accusation_rate']*100:.1f}%) |\n"
         if m else "| _not evaluated_ | — |\n"
     )
+    crit = d.get("criterion", "n/a")
+    if crit == "fixed":
+        threshold_prose = (
+            f"The published threshold is **{d.get('threshold', 0.5):.3f}** — a neutral "
+            f"default, **not** a fitted operating point. A temperature of "
+            f"**{d.get('temperature', 1.0):.3f}** was fitted on validation and is applied.\n\n"
+            f"Thresholds fitted on the validation split do not transfer to the test "
+            f"split for this dataset (see Limitations). Pick your own operating point "
+            f"from `threshold_sweep` in the evaluation report, on data resembling "
+            f"your deployment."
+        )
+    else:
+        threshold_prose = (
+            f"Decision threshold **{d.get('threshold', 0.5):.3f}** and temperature "
+            f"**{d.get('temperature', 1.0):.3f}** were fitted on a held-out validation "
+            f"split ({crit} criterion) and are carried in `serving.json`."
+        )
+
+    corrupt_p = ((report.get("config") or {}).get("data") or {}).get("corruption_prob")
+    if corrupt_p:
+        augmentation_prose = (
+            "Training used corruption-matched augmentation — desaturation, colour "
+            "cast, noise, speckle, blur, JPEG artefacts, pixelation, brightness "
+            "shift and occlusion — because the test split is measurably more "
+            "degraded than train."
+        )
+    else:
+        augmentation_prose = (
+            "Training used light augmentation only: horizontal flip, small "
+            "brightness and contrast jitter. No corruption-matched augmentation."
+        )
+
+    sh = report.get("distribution_shift")
+    shift_prose = ""
+    if sh:
+        shift_prose = (
+            f"- **Validation does not predict test performance on this dataset.** "
+            f"Recall on genuine images at threshold 0.5 is "
+            f"{sh['recall_real_val_at_0.5']:.3f} on validation but "
+            f"{sh['recall_real_test_at_0.5']:.3f} on test. The 10th percentile of "
+            f"scores on genuine images is {sh['p10_real_scores_val']:.3f} on "
+            f"validation and {sh['p10_real_scores_test']:.3f} on test — a subset of "
+            f"test images is confidently misread rather than the whole distribution "
+            f"shifting. The test split carries degradations (desaturation, noise, "
+            f"blocking, blur) that train and validation do not. Expect calibration "
+            f"to drift on degraded inputs."
+        )
+
     return f"""---
 license: mit
 tags: [deepfake-detection, image-classification, forensics, tensorflow, keras]
@@ -106,11 +156,7 @@ concatenated and read by a shared classifier head.
 
 A single sigmoid: **P(Real)**. Fake is `1 - p`.
 
-Decision threshold **{d.get('threshold', 0.5):.3f}** and temperature
-**{d.get('temperature', 1.0):.3f}** were fitted on a held-out validation
-split ({d.get('criterion', 'n/a')} criterion) and are carried in
-`serving.json`. Serving at a naive 0.5 without applying the temperature
-discards that calibration.
+{threshold_prose}
 
 ## Test metrics
 
@@ -149,9 +195,7 @@ Loading needs the `PreprocessLayer` custom layer from
 ## Training data
 
 The face-cropped OpenForensics distribution (190,334 images at 256x256).
-Training used corruption-matched augmentation — desaturation, colour cast,
-noise, speckle, blur, JPEG artefacts, pixelation, brightness shift and
-occlusion — because the test split is measurably more degraded than train.
+{augmentation_prose}
 
 ## Limitations
 
@@ -161,6 +205,7 @@ occlusion — because the test split is measurably more degraded than train.
   the output.
 - Performance degrades on manipulation methods absent from OpenForensics.
 - Research and educational use. Not a forensic authority.
+{shift_prose}
 
 ## Citation
 
@@ -192,7 +237,11 @@ def main(a):
     cfg_path = run_dir / "config.json"
     if cfg_path.exists():
         backbones = json.loads(cfg_path.read_text())["model"]["backbones"]
-    (out / "README.md").write_text(model_card(card, backbones, a.version))
+    report_path = run_dir / "eval" / "report.json"
+    report = json.loads(report_path.read_text()) if report_path.exists() else {}
+    if cfg_path.exists():
+        report["config"] = json.loads(cfg_path.read_text())
+    (out / "README.md").write_text(model_card(card, backbones, a.version, report))
 
     for extra in ("config.json", "manifest.json"):
         p = run_dir / extra
