@@ -16,6 +16,13 @@ from keras.saving import register_keras_serializable
 #                            so its preprocess_input is a documented no-op
 _MODES = ("resnet50", "vgg16", "efficientnetv2")
 
+# Checkpoints from the original two-backbone model serialise mode="resnet".
+# Normalising here rather than shipping a second class means those weights
+# load anywhere this module is importable -- including the deployed app,
+# which has no reason to carry the old training code.
+_ALIASES = {"resnet": "resnet50", "vgg": "vgg16",
+            "efficientnet": "efficientnetv2", "efficientnetv2b0": "efficientnetv2"}
+
 
 @register_keras_serializable(package="OpenForensics")
 class PreprocessLayer(layers.Layer):
@@ -23,6 +30,7 @@ class PreprocessLayer(layers.Layer):
 
     def __init__(self, mode: str = "resnet50", **kwargs):
         super().__init__(**kwargs)
+        mode = _ALIASES.get(mode, mode)
         if mode not in _MODES:
             raise ValueError(f"mode must be one of {_MODES}, got {mode!r}")
         self.mode = mode
@@ -40,14 +48,3 @@ class PreprocessLayer(layers.Layer):
 
     def get_config(self):
         return {**super().get_config(), "mode": self.mode}
-
-
-# The original model_def.py used mode='resnet'/'vgg16'. Old checkpoints carry
-# those strings, so accept them when deserialising rather than breaking loads.
-_LEGACY = {"resnet": "resnet50", "vgg": "vgg16"}
-
-
-@register_keras_serializable(package="OpenForensics")
-class LegacyPreprocessLayer(PreprocessLayer):
-    def __init__(self, mode: str = "resnet", **kwargs):
-        super().__init__(mode=_LEGACY.get(mode, mode), **kwargs)

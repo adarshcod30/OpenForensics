@@ -172,6 +172,12 @@ if loaded:
             try:
                 from openforensics.evaluation import explain
                 cams = explain.all_branches(model, x, size=IMG_SIZE)
+                if not cams:
+                    raise RuntimeError(
+                        "no addressable backbone found — this checkpoint has its "
+                        "backbones inlined into the parent graph, so per-branch "
+                        "attribution is not available"
+                    )
                 base = x[0]
                 cols = st.columns(len(cams))
                 for col, (name, hm) in zip(cols, cams.items()):

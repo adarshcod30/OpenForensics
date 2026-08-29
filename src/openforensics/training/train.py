@@ -18,6 +18,7 @@ import numpy as np
 import tensorflow as tf
 
 from ..config import CLASSES, RunConfig
+from ..gpulock import gpu_lock
 from ..data import manifest as manifest_mod
 from ..data import pipeline
 from ..models.ensemble import build_ensemble, set_backbone_trainable, summarise
@@ -85,6 +86,11 @@ def prepare_data(cfg: RunConfig):
 
 
 def main(cfg: RunConfig, stage2: bool = True):
+    with gpu_lock(f"train:{cfg.name}"):
+        return _main(cfg, stage2)
+
+
+def _main(cfg: RunConfig, stage2: bool = True):
     keras.utils.set_random_seed(cfg.data.seed)
     cfg.run_dir.mkdir(parents=True, exist_ok=True)
     cfg.save()

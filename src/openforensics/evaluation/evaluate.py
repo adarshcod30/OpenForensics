@@ -21,6 +21,7 @@ from ..config import RunConfig
 from ..data import manifest as manifest_mod
 from ..data import pipeline
 from ..data.corruptions import CORRUPTIONS
+from ..gpulock import gpu_lock
 from ..models.layers import PreprocessLayer
 from . import metrics as M
 
@@ -67,6 +68,11 @@ def per_corruption(model, files, labels, batch, img_size, threshold, tta):
 
 
 def main(a):
+    with gpu_lock(f"evaluate:{Path(a.run_dir).name}"):
+        return _main(a)
+
+
+def _main(a):
     run_dir = Path(a.run_dir)
     out = run_dir / "eval"
     out.mkdir(parents=True, exist_ok=True)

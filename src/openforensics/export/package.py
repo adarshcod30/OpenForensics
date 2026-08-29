@@ -78,6 +78,98 @@ def build_card(run_dir: Path, weights_name: str, info: dict) -> dict:
     return card
 
 
+def model_card(card: dict, backbones: list[str], version: str) -> str:
+    d = card.get("decision", {})
+    m = card.get("test_metrics", {})
+    metrics_block = (
+        f"| Accuracy | {m['accuracy']:.4f} |\n"
+        f"| ROC-AUC | {m['roc_auc']:.4f} |\n"
+        f"| PR-AUC | {m['pr_auc']:.4f} |\n"
+        f"| Real images called fake | {m['real_called_fake']} "
+        f"({m['false_accusation_rate']*100:.1f}%) |\n"
+        if m else "| _not evaluated_ | — |\n"
+    )
+    return f"""---
+license: mit
+tags: [deepfake-detection, image-classification, forensics, tensorflow, keras]
+library_name: keras
+pipeline_tag: image-classification
+---
+
+# OpenForensics Deepfake Detector ({version})
+
+A multi-backbone CNN ensemble that classifies face crops as **Real** or
+**Fake**. Backbones: {', '.join(backbones)}. Their pooled embeddings are
+concatenated and read by a shared classifier head.
+
+## Output
+
+A single sigmoid: **P(Real)**. Fake is `1 - p`.
+
+Decision threshold **{d.get('threshold', 0.5):.3f}** and temperature
+**{d.get('temperature', 1.0):.3f}** were fitted on a held-out validation
+split ({d.get('criterion', 'n/a')} criterion) and are carried in
+`serving.json`. Serving at a naive 0.5 without applying the temperature
+discards that calibration.
+
+## Test metrics
+
+| Metric | Value |
+|---|---|
+{metrics_block}
+Measured on a held-out test split with horizontal-flip test-time
+augmentation. The split is content-hash deduplicated against train and
+validation, so no image appears in more than one split.
+
+## Input
+
+Resize to 224x224, scale to `[0, 1]`, shape `(N, 224, 224, 3)` float32.
+Per-backbone normalisation happens **inside** the model — do not apply
+`preprocess_input` yourself.
+
+```python
+from huggingface_hub import snapshot_download
+import tensorflow as tf, numpy as np, json
+from PIL import Image
+
+path = snapshot_download("adarshcod30/openforensics-ensemble")
+model = tf.keras.models.load_model(f"{{path}}/model.keras", compile=False)
+card = json.load(open(f"{{path}}/serving.json"))
+
+img = Image.open("face.jpg").convert("RGB").resize((224, 224))
+x = np.asarray(img, dtype="float32")[None] / 255.0
+p = float(model.predict(x)[0, 0])
+print("Real" if p >= card["decision"]["threshold"] else "Fake", p)
+```
+
+Loading needs the `PreprocessLayer` custom layer from
+[the repo](https://github.com/adarshcod30/OpenForensics), or pass it via
+`custom_objects`.
+
+## Training data
+
+The face-cropped OpenForensics distribution (190,334 images at 256x256).
+Training used corruption-matched augmentation — desaturation, colour cast,
+noise, speckle, blur, JPEG artefacts, pixelation, brightness shift and
+occlusion — because the test split is measurably more degraded than train.
+
+## Limitations
+
+- Trained on **face crops**. Behaviour on full scenes or non-face images is
+  undefined.
+- A score near the threshold is not evidence. Treat the margin as part of
+  the output.
+- Performance degrades on manipulation methods absent from OpenForensics.
+- Research and educational use. Not a forensic authority.
+
+## Citation
+
+> Trung-Nghia Le, Huy H. Nguyen, Junichi Yamagishi, Isao Echizen,
+> "OpenForensics: Large-Scale Challenging Dataset For Multi-Face Forgery
+> Detection And Segmentation In-The-Wild", ICCV 2021.
+"""
+
+
 def main(a):
     run_dir = Path(a.run_dir)
     out = Path(a.out_dir or (run_dir / "serving"))
@@ -96,6 +188,12 @@ def main(a):
         print(f"decision: threshold={card['decision']['threshold']:.3f} "
               f"temperature={card['decision']['temperature']:.3f}")
 
+    backbones = ["resnet50", "vgg16"]
+    cfg_path = run_dir / "config.json"
+    if cfg_path.exists():
+        backbones = json.loads(cfg_path.read_text())["model"]["backbones"]
+    (out / "README.md").write_text(model_card(card, backbones, a.version))
+
     for extra in ("config.json", "manifest.json"):
         p = run_dir / extra
         if p.exists():
@@ -103,11 +201,12 @@ def main(a):
     print(f"packaged -> {out}")
 
     if a.push_to:
-        push(out, a.push_to, a.private)
+        push(out, a.push_to, a.private, a.make_public)
     return card
 
 
-def push(folder: Path, repo_id: str, private: bool = False):
+def push(folder: Path, repo_id: str, private: bool = False,
+         make_public: bool = False):
     """Upload to the Hugging Face Hub.
 
     Weights cannot live in git: the repo's own .gitignore excludes *.keras
@@ -118,6 +217,9 @@ def push(folder: Path, repo_id: str, private: bool = False):
     api = HfApi()
     api.create_repo(repo_id, repo_type="model", private=private, exist_ok=True)
     api.upload_folder(folder_path=str(folder), repo_id=repo_id, repo_type="model")
+    if make_public:
+        api.update_repo_settings(repo_id=repo_id, repo_type="model", private=False)
+        print("repo set to public")
     print(f"pushed -> https://huggingface.co/{repo_id}")
 
 
@@ -128,6 +230,9 @@ def cli():
     p.add_argument("--out_dir", default=None)
     p.add_argument("--push_to", default=None, help="HF repo id, e.g. user/openforensics")
     p.add_argument("--private", action="store_true")
+    p.add_argument("--version", default="v1")
+    p.add_argument("--make_public", action="store_true",
+                   help="flip an existing private repo to public after upload")
     main(p.parse_args())
 
 
