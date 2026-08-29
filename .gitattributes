@@ -1,0 +1,7 @@
+# The committed report PDF was corrupted by having every carriage return
+# stripped before it was added — all 68 compressed streams fail to inflate.
+# Marking binaries explicitly stops any text-mode filter touching them again.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.keras binary

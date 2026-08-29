@@ -1,36 +1,28 @@
-# Byte-compiled / optimized / DLL files
+# Byte-compiled
 __pycache__/
 *.py[cod]
 *$py.class
-
-# macOS Specific
+.pytest_cache/
 .DS_Store
 
-# Virtual Environments
-venv/
-env/
-.env
-.venv
-ENV/
-env.bak/
-venv.bak/
+# Environments
+venv/ env/ .env .venv ENV/
 
-# Dataset Files (Too large for GitHub)
-Dataset/
-runs/exp1/
-runs/exp1_finetune/
-runs_exp1_finetune_submission.tar.gz
+# Dataset — 190k images, ~2 GB. See README for the download.
+# Anchored with a leading slash: an unanchored `Dataset/` also matches
+# `src/dataset/` on case-insensitive filesystems (macOS, Windows).
+/Dataset/
 
-# Deep Learning Weight Files (Too large for standard GitHub, use Git LFS or external host)
+# Run outputs. Weights are published to the Hugging Face Hub instead;
+# a single training writes ~1.1 GB, most of it optimizer state.
+runs/
 *.keras
 *.h5
 *.hdf5
 *.pb
-
-# Logs and Checkpoints
 logs/
 tensorboard/
 *.log
 
-# Jupyter Notebooks
+# Jupyter
 .ipynb_checkpoints
