@@ -37,6 +37,15 @@ def _metrics():
 def _callbacks(cfg: RunConfig, stage: str, ckpt: Path):
     t = cfg.train
     return [
+        # Snapshots model, optimizer and epoch counter after every epoch, and
+        # silently resumes from them if the directory is already populated.
+        # A multi-hour run on a laptop will eventually meet a lid close, a
+        # reboot or a dead battery; without this, each one costs the whole
+        # stage. Re-running the same command just continues.
+        keras.callbacks.BackupAndRestore(
+            backup_dir=str(cfg.run_dir / "backup" / stage),
+            delete_checkpoint=False,
+        ),
         keras.callbacks.ModelCheckpoint(
             str(ckpt), monitor=t.monitor, mode=t.monitor_mode, save_best_only=True
         ),
@@ -48,7 +57,9 @@ def _callbacks(cfg: RunConfig, stage: str, ckpt: Path):
             monitor=t.monitor, mode=t.monitor_mode,
             factor=0.5, patience=t.reduce_lr_patience, min_lr=1e-8,
         ),
-        keras.callbacks.CSVLogger(str(cfg.run_dir / f"{stage}_log.csv")),
+        # append=True so a resumed run extends its history instead of
+        # truncating the epochs that ran before the interruption.
+        keras.callbacks.CSVLogger(str(cfg.run_dir / f"{stage}_log.csv"), append=True),
         keras.callbacks.TensorBoard(log_dir=str(cfg.run_dir / "tb" / stage)),
     ]
 
@@ -97,6 +108,10 @@ def _main(cfg: RunConfig, stage2: bool = True):
 
     mf, train_ds, val_ds, test_ds = prepare_data(cfg)
     print(f"\nrun dir: {cfg.run_dir}   manifest digest: {mf.digest()}")
+    for stage in ("stage1", "stage2"):
+        bdir = cfg.run_dir / "backup" / stage
+        if bdir.exists() and any(bdir.iterdir()):
+            print(f"  resumable backup found for {stage} -> will continue, not restart")
 
     model = build_ensemble(
         input_shape=(*cfg.data.img_size, 3),
