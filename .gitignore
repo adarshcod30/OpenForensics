@@ -26,3 +26,6 @@ tensorboard/
 
 # Jupyter
 .ipynb_checkpoints
+
+# Local virtualenv (the project uses a conda env; see README)
+venv/
