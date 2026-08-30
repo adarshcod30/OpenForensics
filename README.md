@@ -54,30 +54,30 @@ Three backbones see the same image through their own normalisation, each pools t
   'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
 }}}%%
 flowchart LR
-    subgraph S1["1 · INPUT"]
+    subgraph S1["1 · INPUT&nbsp;&nbsp;"]
         IN["<b>224 × 224 × 3</b><br/>float32 ∈ 0…1<br/>one shared tensor"]
     end
 
-    subgraph S2["2 · NORMALISE"]
+    subgraph S2["2 · NORMALISE&nbsp;&nbsp;"]
         P1["<b>resnet50</b><br/>caffe · means subtracted"]
         P2["<b>vgg16</b><br/>caffe · different means"]
         P3["<b>efficientnetv2</b><br/>raw 0…255 · no-op"]
     end
 
-    subgraph S3["3 · BACKBONES"]
+    subgraph S3["3 · BACKBONES&nbsp;&nbsp;"]
         B1["<b>ResNet50</b><br/>23.6M · 7×7×2048<br/>global structure"]
         B2["<b>VGG16</b><br/>14.7M · 7×7×512<br/>fine texture, seams"]
         B3["<b>EfficientNetV2-B0</b><br/>5.9M · 7×7×1280<br/>best per parameter"]
     end
 
-    subgraph S4["4 · FUSION"]
+    subgraph S4["4 · FUSION&nbsp;&nbsp;"]
         H1["GAP → Dropout 0.4<br/>Dense 256 → BN"]
         H2["GAP → Dropout 0.4<br/>Dense 256 → BN"]
         H3["GAP → Dropout 0.4<br/>Dense 256 → BN"]
         F["<b>Concatenate — 768</b><br/>Dropout → Dense 256<br/>→ BN → Dropout 0.3"]
     end
 
-    subgraph S5["5 · OUTPUT"]
+    subgraph S5["5 · OUTPUT&nbsp;&nbsp;"]
         O["<b>Dense 1 · sigmoid</b><br/>P(genuine)<br/>threshold 0.362 · T 0.876"]
     end
 
@@ -113,17 +113,17 @@ error — it silently starts a branch from a worse initialisation.
   'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
 }}}%%
 flowchart TD
-    subgraph T1["1 · STAGE ONE"]
+    subgraph T1["1 · STAGE ONE&nbsp;&nbsp;"]
         A["<b>All backbones frozen</b><br/>1,182,977 trainable · 2.6%<br/>lr 2e-4 · 20 epochs"]
         A2["<b>Best val ROC-AUC 0.8853</b><br/>the ceiling of fixed<br/>ImageNet features"]
         A --> A2
     end
 
-    subgraph T2["2 · HANDOVER"]
+    subgraph T2["2 · HANDOVER&nbsp;&nbsp;"]
         C["<b>Load stage-1 best checkpoint</b><br/>explicit, not left to<br/>EarlyStopping restore"]
     end
 
-    subgraph T3["3 · STAGE TWO"]
+    subgraph T3["3 · STAGE TWO&nbsp;&nbsp;"]
         D["<b>Top ~50 layers per backbone unfrozen</b><br/>34,759,377 trainable · 76.6%<br/>lr 1e-5 · 10 epochs"]
         D2["<b>BatchNorm frozen throughout</b><br/>trainable BN overwrites ImageNet<br/>running stats from tiny batches"]
         D3["<b>Best val ROC-AUC 0.9962</b>"]
@@ -221,27 +221,27 @@ gigabyte, that is the difference between a site that browses and one that dies o
   'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
 }}}%%
 flowchart TD
-    subgraph P1["1 · DATA"]
+    subgraph P1["1 · DATA&nbsp;&nbsp;"]
         D[("<b>Dataset</b><br/>190,334 face crops<br/>256×256 · not redistributed")]
         M["<b>Manifest</b><br/>seeded stratified sample<br/>content-hash dedup"]
         L{"<b>Leakage check</b><br/>0 shared · 0 duplicate"}
         D --> M --> L
     end
 
-    subgraph P2["2 · TRAINING"]
+    subgraph P2["2 · TRAINING&nbsp;&nbsp;"]
         T["<b>tf.data pipeline</b><br/>decode → resize → ÷255<br/>flip + 9 corruption families"]
         S1["<b>Stage 1</b><br/>heads only"]
         S2["<b>Stage 2</b><br/>fine-tune · BN frozen"]
         T --> S1 --> S2
     end
 
-    subgraph P3["3 · EVALUATION"]
+    subgraph P3["3 · EVALUATION&nbsp;&nbsp;"]
         EV["<b>Evaluate</b><br/>TTA · temperature · threshold<br/>per-corruption sweep"]
         SC["<b>scores.npz</b><br/>raw predictions saved —<br/>re-thresholding needs no GPU"]
         EV --> SC
     end
 
-    subgraph P4["4 · DELIVERY"]
+    subgraph P4["4 · DELIVERY&nbsp;&nbsp;"]
         PK["<b>Package</b><br/>strip optimiser 461→183 MB<br/>serving card + curves"]
         HUB[("<b>Hugging Face Hub</b><br/>weights + evidence")]
         APP["<b>Streamlit dashboard</b><br/>8 pages · model lazy-loaded"]
