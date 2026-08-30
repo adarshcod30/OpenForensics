@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "openforensics-app",
+      "runtimeExecutable": "/opt/homebrew/Caskroom/miniforge/base/envs/openforensics/bin/streamlit",
+      "runtimeArgs": ["run", "app/app_streamlit.py", "--server.port", "8502", "--server.headless", "true"],
+      "port": 8502
+    }
+  ]
+}
