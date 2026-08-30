@@ -37,23 +37,39 @@ def render():
 
     st.divider()
     section("Accuracy by degradation", "Dashed line is clean accuracy. Hover for detail.")
-    bars = (
-        alt.Chart(df).mark_bar(cornerRadiusEnd=4).encode(
-            y=alt.Y("degradation:N", title=None, sort="-x"),
-            x=alt.X("accuracy:Q", title="Accuracy",
-                    scale=alt.Scale(domain=[min(df.accuracy) - 0.03, 1.0])),
-            color=alt.condition(alt.datum.degradation == "clean",
-                                alt.value(C_REAL), alt.value(C_FAKE)),
-            tooltip=[alt.Tooltip("degradation:N", title="Degradation"),
-                     alt.Tooltip("accuracy:Q", format=".4f"),
-                     alt.Tooltip("roc_auc:Q", title="ROC-AUC", format=".4f"),
-                     alt.Tooltip("delta:Q", title="vs clean", format="+.4f"),
-                     alt.Tooltip("what:N", title="")],
-        ).properties(height=340)
+    # A lollipop, not a bar chart. Bar marks span from zero, so an x scale
+    # zoomed to [0.84, 1.0] puts the whole bar outside the domain and
+    # Vega-Lite renders nothing -- the chart appears as blank space with no
+    # console error. A rule anchored explicitly to the domain floor via x2
+    # has no implicit baseline, so it survives the zoom, and the zoom is what
+    # makes a four-point accuracy spread legible at all.
+    order = df["degradation"].tolist()
+    lo = float(min(df.accuracy) - 0.03)
+    colour = alt.condition(alt.datum.degradation == "clean",
+                           alt.value(C_REAL), alt.value(C_FAKE))
+    stems = alt.Chart(df).mark_rule(strokeWidth=3).encode(
+        y=alt.Y("degradation:N", title=None, sort=order),
+        x=alt.X("accuracy:Q", title="Accuracy", scale=alt.Scale(domain=[lo, 1.0])),
+        x2=alt.datum(lo),
+        color=colour,
+        tooltip=[alt.Tooltip("degradation:N", title="Degradation"),
+                 alt.Tooltip("accuracy:Q", format=".4f"),
+                 alt.Tooltip("roc_auc:Q", title="ROC-AUC", format=".4f"),
+                 alt.Tooltip("delta:Q", title="vs clean", format="+.4f"),
+                 alt.Tooltip("what:N", title="")],
+    )
+    heads = alt.Chart(df).mark_point(size=150, filled=True, opacity=1).encode(
+        y=alt.Y("degradation:N", sort=order),
+        x=alt.X("accuracy:Q", scale=alt.Scale(domain=[lo, 1.0])),
+        color=colour,
+        tooltip=[alt.Tooltip("degradation:N", title="Degradation"),
+                 alt.Tooltip("accuracy:Q", format=".4f"),
+                 alt.Tooltip("delta:Q", title="vs clean", format="+.4f")],
     )
     rule = alt.Chart(pd.DataFrame({"a": [base]})).mark_rule(
         color=C_REAL, strokeDash=[6, 4], strokeWidth=2).encode(x="a:Q")
-    st.altair_chart(bars + rule, use_container_width=True)
+    st.altair_chart((stems + heads + rule).properties(height=340),
+                    use_container_width=True)
 
     st.divider()
     section("Full table")
