@@ -46,27 +46,51 @@ Three backbones see the same image through their own normalisation, each pools t
 **45,406,737 parameters.**
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',
+  'primaryBorderColor':'#30363d','secondaryColor':'#161b22','tertiaryColor':'#161b22',
+  'lineColor':'#8b949e','textColor':'#e6edf3','fontSize':'14px',
+  'fontFamily':'ui-sans-serif,-apple-system,Segoe UI,sans-serif',
+  'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
+}}}%%
 flowchart LR
-    IN["Input<br/>224×224×3<br/>float32 ∈ [0,1]"]
+    subgraph S1["1 · INPUT"]
+        IN["<b>224 × 224 × 3</b><br/>float32 ∈ 0…1<br/>one shared tensor"]
+    end
 
-    IN --> P1["preprocess<br/>resnet50"]
-    IN --> P2["preprocess<br/>vgg16"]
-    IN --> P3["preprocess<br/>efficientnetv2"]
+    subgraph S2["2 · NORMALISE"]
+        P1["<b>resnet50</b><br/>caffe · means subtracted"]
+        P2["<b>vgg16</b><br/>caffe · different means"]
+        P3["<b>efficientnetv2</b><br/>raw 0…255 · no-op"]
+    end
 
-    P1 --> B1["ResNet50<br/>23.6M<br/>7×7×2048"]
-    P2 --> B2["VGG16<br/>14.7M<br/>7×7×512"]
-    P3 --> B3["EfficientNetV2-B0<br/>5.9M<br/>7×7×1280"]
+    subgraph S3["3 · BACKBONES"]
+        B1["<b>ResNet50</b><br/>23.6M · 7×7×2048<br/>global structure"]
+        B2["<b>VGG16</b><br/>14.7M · 7×7×512<br/>fine texture, seams"]
+        B3["<b>EfficientNetV2-B0</b><br/>5.9M · 7×7×1280<br/>best per parameter"]
+    end
 
-    B1 --> H1["GAP → Dropout<br/>Dense 256 → BN"]
-    B2 --> H2["GAP → Dropout<br/>Dense 256 → BN"]
-    B3 --> H3["GAP → Dropout<br/>Dense 256 → BN"]
+    subgraph S4["4 · FUSION"]
+        H1["GAP → Dropout 0.4<br/>Dense 256 → BN"]
+        H2["GAP → Dropout 0.4<br/>Dense 256 → BN"]
+        H3["GAP → Dropout 0.4<br/>Dense 256 → BN"]
+        F["<b>Concatenate — 768</b><br/>Dropout → Dense 256<br/>→ BN → Dropout 0.3"]
+    end
 
-    H1 --> F["Concatenate<br/>768"]
-    H2 --> F
-    H3 --> F
+    subgraph S5["5 · OUTPUT"]
+        O["<b>Dense 1 · sigmoid</b><br/>P(genuine)<br/>threshold 0.362 · T 0.876"]
+    end
 
-    F --> D["Dropout → Dense 256<br/>→ BN → Dropout"]
-    D --> O["Dense 1, sigmoid<br/>P(genuine)"]
+    IN --> P1 --> B1 --> H1 --> F
+    IN --> P2 --> B2 --> H2 --> F
+    IN --> P3 --> B3 --> H3 --> F
+    F --> O
+
+    style S1 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style S2 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style S3 fill:#2a1a0b,stroke:#D9752F,stroke-width:2px,color:#D9752F
+    style S4 fill:#0b241c,stroke:#2BA574,stroke-width:2px,color:#2BA574
+    style S5 fill:#221436,stroke:#A78BFA,stroke-width:2px,color:#A78BFA
 ```
 
 Each backbone expects a **different input convention**. Getting this wrong does not raise an
@@ -81,12 +105,36 @@ error — it silently starts a branch from a worse initialisation.
 ### Two-stage training
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',
+  'primaryBorderColor':'#30363d','secondaryColor':'#161b22','tertiaryColor':'#161b22',
+  'lineColor':'#8b949e','textColor':'#e6edf3','fontSize':'14px',
+  'fontFamily':'ui-sans-serif,-apple-system,Segoe UI,sans-serif',
+  'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
+}}}%%
 flowchart TD
-    A["Stage 1 — heads only<br/>backbones frozen · 1.18M trainable (2.6%) · lr 2e-4<br/>20 epochs"]
-    A --> B["Best val ROC-AUC 0.8853<br/>the ceiling of fixed ImageNet features"]
-    B --> C["Load stage-1 best checkpoint"]
-    C --> D["Stage 2 — fine-tuning<br/>top ~50 layers per backbone unfrozen · 34.76M trainable (76.6%) · lr 1e-5<br/>BatchNorm frozen throughout · 10 epochs"]
-    D --> E["Best val ROC-AUC 0.9962"]
+    subgraph T1["1 · STAGE ONE"]
+        A["<b>All backbones frozen</b><br/>1,182,977 trainable · 2.6%<br/>lr 2e-4 · 20 epochs"]
+        A2["<b>Best val ROC-AUC 0.8853</b><br/>the ceiling of fixed<br/>ImageNet features"]
+        A --> A2
+    end
+
+    subgraph T2["2 · HANDOVER"]
+        C["<b>Load stage-1 best checkpoint</b><br/>explicit, not left to<br/>EarlyStopping restore"]
+    end
+
+    subgraph T3["3 · STAGE TWO"]
+        D["<b>Top ~50 layers per backbone unfrozen</b><br/>34,759,377 trainable · 76.6%<br/>lr 1e-5 · 10 epochs"]
+        D2["<b>BatchNorm frozen throughout</b><br/>trainable BN overwrites ImageNet<br/>running stats from tiny batches"]
+        D3["<b>Best val ROC-AUC 0.9962</b>"]
+        D --> D2 --> D3
+    end
+
+    A2 --> C --> D
+
+    style T1 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style T2 fill:#221436,stroke:#A78BFA,stroke-width:2px,color:#A78BFA
+    style T3 fill:#2a1a0b,stroke:#D9752F,stroke-width:2px,color:#D9752F
 ```
 
 > **BatchNorm stays frozen during stage 2.** A trainable BatchNorm layer switches to batch
@@ -165,16 +213,49 @@ gigabyte, that is the difference between a site that browses and one that dies o
 ## Pipeline
 
 ```mermaid
-flowchart LR
-    D[("Dataset<br/>190,334 face crops")] --> M["Manifest<br/>seeded stratified sample<br/>content-hash dedup"]
-    M --> L{"Leakage<br/>check"}
-    L -->|"0 shared, 0 duplicate"| T["tf.data pipeline<br/>decode → resize → /255<br/>flip + 9 corruption families"]
-    T --> S1["Stage 1<br/>heads only"]
-    S1 --> S2["Stage 2<br/>fine-tune"]
-    S2 --> EV["Evaluate<br/>TTA · temperature · threshold<br/>per-corruption sweep"]
-    EV --> PK["Package<br/>strip optimiser · serving card"]
-    PK --> HUB[("Hugging Face Hub")]
-    HUB --> APP["Streamlit dashboard"]
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',
+  'primaryBorderColor':'#30363d','secondaryColor':'#161b22','tertiaryColor':'#161b22',
+  'lineColor':'#8b949e','textColor':'#e6edf3','fontSize':'14px',
+  'fontFamily':'ui-sans-serif,-apple-system,Segoe UI,sans-serif',
+  'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
+}}}%%
+flowchart TD
+    subgraph P1["1 · DATA"]
+        D[("<b>Dataset</b><br/>190,334 face crops<br/>256×256 · not redistributed")]
+        M["<b>Manifest</b><br/>seeded stratified sample<br/>content-hash dedup"]
+        L{"<b>Leakage check</b><br/>0 shared · 0 duplicate"}
+        D --> M --> L
+    end
+
+    subgraph P2["2 · TRAINING"]
+        T["<b>tf.data pipeline</b><br/>decode → resize → ÷255<br/>flip + 9 corruption families"]
+        S1["<b>Stage 1</b><br/>heads only"]
+        S2["<b>Stage 2</b><br/>fine-tune · BN frozen"]
+        T --> S1 --> S2
+    end
+
+    subgraph P3["3 · EVALUATION"]
+        EV["<b>Evaluate</b><br/>TTA · temperature · threshold<br/>per-corruption sweep"]
+        SC["<b>scores.npz</b><br/>raw predictions saved —<br/>re-thresholding needs no GPU"]
+        EV --> SC
+    end
+
+    subgraph P4["4 · DELIVERY"]
+        PK["<b>Package</b><br/>strip optimiser 461→183 MB<br/>serving card + curves"]
+        HUB[("<b>Hugging Face Hub</b><br/>weights + evidence")]
+        APP["<b>Streamlit dashboard</b><br/>8 pages · model lazy-loaded"]
+        PK --> HUB --> APP
+    end
+
+    L --> T
+    S2 --> EV
+    SC --> PK
+
+    style P1 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style P2 fill:#2a1a0b,stroke:#D9752F,stroke-width:2px,color:#D9752F
+    style P3 fill:#0b241c,stroke:#2BA574,stroke-width:2px,color:#2BA574
+    style P4 fill:#221436,stroke:#A78BFA,stroke-width:2px,color:#A78BFA
 ```
 
 Every run writes its exact file list, a content-hash leakage report and its full configuration
