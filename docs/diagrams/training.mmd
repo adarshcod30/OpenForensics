@@ -1,0 +1,33 @@
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',
+  'primaryBorderColor':'#30363d','secondaryColor':'#161b22','tertiaryColor':'#161b22',
+  'lineColor':'#8b949e','textColor':'#e6edf3','fontSize':'14px',
+  'fontFamily':'ui-sans-serif,-apple-system,Segoe UI,sans-serif',
+  'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
+}}}%%
+flowchart LR
+    subgraph T1["1 · STAGE ONE&nbsp;&nbsp;"]
+        direction TB
+        A["<b>All backbones frozen</b><br/>1,182,977 trainable · 2.6%<br/>lr 2e-4 · 20 epochs"]
+        A2["<b>Best val ROC-AUC 0.8853</b><br/>the ceiling of fixed<br/>ImageNet features"]
+        A --> A2
+    end
+
+    subgraph T2["2 · HANDOVER&nbsp;&nbsp;"]
+        direction TB
+        C["<b>Load stage-1 best checkpoint</b><br/>explicit, not left to<br/>EarlyStopping restore"]
+    end
+
+    subgraph T3["3 · STAGE TWO&nbsp;&nbsp;"]
+        direction TB
+        D["<b>Top ~50 layers per backbone unfrozen</b><br/>34,759,377 trainable · 76.6%<br/>lr 1e-5 · 10 epochs"]
+        D2["<b>BatchNorm frozen throughout</b><br/>trainable BN overwrites ImageNet<br/>running stats from tiny batches"]
+        D3["<b>Best val ROC-AUC 0.9962</b>"]
+        D --> D2 --> D3
+    end
+
+    A2 --> C --> D
+
+    style T1 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style T2 fill:#221436,stroke:#A78BFA,stroke-width:2px,color:#A78BFA
+    style T3 fill:#2a1a0b,stroke:#D9752F,stroke-width:2px,color:#D9752F

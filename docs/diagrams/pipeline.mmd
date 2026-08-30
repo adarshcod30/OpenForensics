@@ -1,0 +1,44 @@
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',
+  'primaryBorderColor':'#30363d','secondaryColor':'#161b22','tertiaryColor':'#161b22',
+  'lineColor':'#8b949e','textColor':'#e6edf3','fontSize':'14px',
+  'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
+}}}%%
+flowchart LR
+    subgraph P1["1 · DATA&nbsp;&nbsp;"]
+        direction TB
+        D[("<b>190,334 face crops</b><br/>256×256")]
+        M["<b>Manifest</b><br/>seeded sample<br/>content-hash dedup<br/>0 leaked · 0 duplicate"]
+        D --> M
+    end
+
+    subgraph P2["2 · TRAIN&nbsp;&nbsp;"]
+        direction TB
+        T["<b>tf.data</b><br/>resize · ÷255<br/>flip + 9 corruptions"]
+        S["<b>Two stages</b><br/>heads → fine-tune<br/>BatchNorm frozen"]
+        T --> S
+    end
+
+    subgraph P3["3 · EVALUATE&nbsp;&nbsp;"]
+        direction TB
+        EV["<b>TTA · temperature<br/>· threshold</b><br/>per-corruption sweep"]
+        SC["<b>scores.npz</b><br/>re-thresholding<br/>needs no GPU"]
+        EV --> SC
+    end
+
+    subgraph P4["4 · SHIP&nbsp;&nbsp;"]
+        direction TB
+        PK["<b>Package</b><br/>461 → 183 MB<br/>card + curves"]
+        HUB[("<b>Hugging Face Hub</b>")]
+        APP["<b>Streamlit</b><br/>8 pages · lazy model"]
+        PK --> HUB --> APP
+    end
+
+    M --> T
+    S --> EV
+    SC --> PK
+
+    style P1 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style P2 fill:#2a1a0b,stroke:#D9752F,stroke-width:2px,color:#D9752F
+    style P3 fill:#0b241c,stroke:#2BA574,stroke-width:2px,color:#2BA574
+    style P4 fill:#221436,stroke:#A78BFA,stroke-width:2px,color:#A78BFA

@@ -1,0 +1,45 @@
+%%{init: {'theme':'base','themeVariables':{
+  'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',
+  'primaryBorderColor':'#30363d','secondaryColor':'#161b22','tertiaryColor':'#161b22',
+  'lineColor':'#8b949e','textColor':'#e6edf3','fontSize':'14px',
+  'fontFamily':'ui-sans-serif,-apple-system,Segoe UI,sans-serif',
+  'clusterBkg':'transparent','clusterBorder':'#30363d','edgeLabelBackground':'#21262d'
+}}}%%
+flowchart LR
+    subgraph S1["1 · INPUT&nbsp;&nbsp;"]
+        IN["<b>224 × 224 × 3</b><br/>float32 ∈ 0…1<br/>one shared tensor"]
+    end
+
+    subgraph S2["2 · NORMALISE&nbsp;&nbsp;"]
+        P1["<b>resnet50</b><br/>caffe · means subtracted"]
+        P2["<b>vgg16</b><br/>caffe · different means"]
+        P3["<b>efficientnetv2</b><br/>raw 0…255 · no-op"]
+    end
+
+    subgraph S3["3 · BACKBONES&nbsp;&nbsp;"]
+        B1["<b>ResNet50</b><br/>23.6M · 7×7×2048<br/>global structure"]
+        B2["<b>VGG16</b><br/>14.7M · 7×7×512<br/>fine texture, seams"]
+        B3["<b>EfficientNetV2-B0</b><br/>5.9M · 7×7×1280<br/>best per parameter"]
+    end
+
+    subgraph S4["4 · FUSION&nbsp;&nbsp;"]
+        H1["GAP → Dropout 0.4<br/>Dense 256 → BN"]
+        H2["GAP → Dropout 0.4<br/>Dense 256 → BN"]
+        H3["GAP → Dropout 0.4<br/>Dense 256 → BN"]
+        F["<b>Concatenate — 768</b><br/>Dropout → Dense 256<br/>→ BN → Dropout 0.3"]
+    end
+
+    subgraph S5["5 · OUTPUT&nbsp;&nbsp;"]
+        O["<b>Dense 1 · sigmoid</b><br/>P(genuine)<br/>threshold 0.362 · T 0.876"]
+    end
+
+    IN --> P1 --> B1 --> H1 --> F
+    IN --> P2 --> B2 --> H2 --> F
+    IN --> P3 --> B3 --> H3 --> F
+    F --> O
+
+    style S1 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style S2 fill:#0b1f2a,stroke:#2E9EB8,stroke-width:2px,color:#2E9EB8
+    style S3 fill:#2a1a0b,stroke:#D9752F,stroke-width:2px,color:#D9752F
+    style S4 fill:#0b241c,stroke:#2BA574,stroke-width:2px,color:#2BA574
+    style S5 fill:#221436,stroke:#A78BFA,stroke-width:2px,color:#A78BFA
