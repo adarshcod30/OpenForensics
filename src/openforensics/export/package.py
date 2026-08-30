@@ -126,17 +126,48 @@ def model_card(card: dict, backbones: list[str], version: str,
     sh = report.get("distribution_shift")
     shift_prose = ""
     if sh:
-        shift_prose = (
-            f"- **Validation does not predict test performance on this dataset.** "
-            f"Recall on genuine images at threshold 0.5 is "
-            f"{sh['recall_real_val_at_0.5']:.3f} on validation but "
-            f"{sh['recall_real_test_at_0.5']:.3f} on test. The 10th percentile of "
-            f"scores on genuine images is {sh['p10_real_scores_val']:.3f} on "
-            f"validation and {sh['p10_real_scores_test']:.3f} on test — a subset of "
-            f"test images is confidently misread rather than the whole distribution "
-            f"shifting. The test split carries degradations (desaturation, noise, "
-            f"blocking, blur) that train and validation do not. Expect calibration "
-            f"to drift on degraded inputs."
+        gap = sh["recall_real_val_at_0.5"] - sh["recall_real_test_at_0.5"]
+        # The wording has to follow the measurement. A model whose validation
+        # tracks test must not carry a warning that it does not.
+        if gap > 0.08:
+            shift_prose = (
+                f"- **Validation does not predict test performance.** Recall on "
+                f"genuine images at threshold 0.5 is "
+                f"{sh['recall_real_val_at_0.5']:.3f} on validation but "
+                f"{sh['recall_real_test_at_0.5']:.3f} on test — a gap of {gap:.3f}. "
+                f"The 10th percentile of scores on genuine images is "
+                f"{sh['p10_real_scores_val']:.3f} on validation and "
+                f"{sh['p10_real_scores_test']:.3f} on test, so a subset is "
+                f"confidently misread rather than the whole distribution shifting. "
+                f"Re-fit the operating point on data resembling your deployment."
+            )
+        else:
+            shift_prose = (
+                f"- **Validation tracks test closely.** Recall on genuine images at "
+                f"threshold 0.5 is {sh['recall_real_val_at_0.5']:.3f} on validation "
+                f"and {sh['recall_real_test_at_0.5']:.3f} on test — a gap of "
+                f"{gap:.3f}. The 10th percentile of scores on genuine images is "
+                f"{sh['p10_real_scores_val']:.3f} and "
+                f"{sh['p10_real_scores_test']:.3f} respectively, so the operating "
+                f"point fitted on validation transfers. This is a property of the "
+                f"corruption-matched augmentation, not of the benchmark."
+            )
+
+    pc = report.get("per_corruption") or {}
+    robustness = ""
+    if pc:
+        base = pc.get("clean", {}).get("accuracy")
+        rows = "\n".join(
+            f"| {k} | {v['accuracy']:.4f} | {v['roc_auc']:.4f} | "
+            f"{'—' if k == 'clean' else format(v['accuracy'] - base, '+.4f')} |"
+            for k, v in pc.items()
+        )
+        robustness = (
+            "\n## Robustness\n\n"
+            "Accuracy with a single degradation family applied to the whole test "
+            "set, one at a time.\n\n"
+            "| Degradation | Accuracy | ROC-AUC | vs clean |\n|---|---|---|---|\n"
+            + rows + "\n"
         )
 
     return f"""---
@@ -197,6 +228,7 @@ Loading needs the `PreprocessLayer` custom layer from
 The face-cropped OpenForensics distribution (190,334 images at 256x256).
 {augmentation_prose}
 
+{robustness}
 ## Limitations
 
 - Trained on **face crops**. Behaviour on full scenes or non-face images is
