@@ -275,10 +275,17 @@ def main(a):
         report["config"] = json.loads(cfg_path.read_text())
     (out / "README.md").write_text(model_card(card, backbones, a.version, report))
 
-    for extra in ("config.json", "manifest.json"):
+    # Training curves, the evaluation report and the leakage check travel with
+    # the weights so the deployed app can render them without the repository
+    # or the run directory -- neither of which exists on a hosting platform.
+    for extra in ("config.json", "stage1_history.json", "stage2_history.json",
+                  "stage1_log.csv", "stage2_log.csv", "leakage_report.json"):
         p = run_dir / extra
         if p.exists():
             shutil.copy(p, out / extra)
+    report = run_dir / "eval" / "report.json"
+    if report.exists():
+        shutil.copy(report, out / "evaluation_report.json")
     print(f"packaged -> {out}")
 
     if a.push_to:

@@ -1,0 +1,115 @@
+"""The detector. The only page that loads the model."""
+import numpy as np
+import streamlit as st
+from PIL import Image
+
+from shared import IMG_SIZE, bundle, load_model, section
+
+EPS = 1e-7
+
+
+def _calibrate(p: float, t: float) -> float:
+    if t == 1.0:
+        return p
+    pc = np.clip(p, EPS, 1 - EPS)
+    return float(1.0 / (1.0 + np.exp(-(np.log(pc / (1 - pc)) / t))))
+
+
+def _predict(model, x, temperature, tta):
+    import tensorflow as tf
+    p = float(model.predict(x, verbose=0).ravel()[0])
+    if tta:
+        flipped = tf.image.flip_left_right(tf.convert_to_tensor(x)).numpy()
+        p = (p + float(model.predict(flipped, verbose=0).ravel()[0])) / 2.0
+    return _calibrate(p, temperature)
+
+
+def render():
+    st.title("Detect")
+    st.caption("Upload a face image. The model returns the probability that it is genuine.")
+
+    b = bundle()
+    d = b["card"].get("decision", {})
+    default_thr = float(d.get("threshold", 0.5))
+    temperature = float(d.get("temperature", 1.0))
+
+    with st.sidebar:
+        section("Decision")
+        threshold = st.slider(
+            "Threshold on P(genuine)", 0.0, 1.0, default_thr, 0.01,
+            help="Below this, the image is called manipulated. The default was "
+                 "fitted on a held-out validation split.",
+        )
+        if abs(threshold - default_thr) > 1e-9:
+            st.caption(f"Shipped default is {default_thr:.3f}.")
+        tta = st.checkbox("Test-time augmentation", value=True,
+                          help="Average the prediction over the image and its mirror. Two forward passes.")
+        show_cam = st.checkbox("Grad-CAM explanation", value=True)
+
+    uploaded = st.file_uploader("Face image", type=["jpg", "jpeg", "png", "webp"],
+                                label_visibility="collapsed")
+    if uploaded is None:
+        st.info("Upload an image to analyse. Best results on a tight face crop — "
+                "the model was trained on those and its behaviour on full scenes "
+                "is undefined.")
+        return
+
+    img = Image.open(uploaded).convert("RGB")
+    x = np.asarray(img.resize(IMG_SIZE), dtype=np.float32)[None] / 255.0
+
+    try:
+        with st.spinner("Loading the model (first run downloads ~183 MB)…"):
+            model = load_model()
+    except Exception as exc:
+        st.error("The model could not be loaded, so no prediction is possible.")
+        st.code(f"{type(exc).__name__}: {exc}")
+        return
+
+    with st.spinner("Analysing…"):
+        p_real = _predict(model, x, temperature, tta)
+
+    genuine = p_real >= threshold
+    margin = abs(p_real - threshold)
+
+    left, right = st.columns([1, 1])
+    with left:
+        st.image(img, caption=uploaded.name, use_container_width=True)
+    with right:
+        if genuine:
+            st.success("### Likely genuine")
+        else:
+            st.error("### Likely manipulated")
+        st.metric("P(genuine)", f"{p_real:.4f}")
+        st.progress(float(np.clip(p_real, 0, 1)))
+        st.caption(f"Threshold {threshold:.2f} · margin {margin:.3f} · "
+                   f"{'calibrated' if temperature != 1.0 else 'uncalibrated'}"
+                   f"{' · TTA on' if tta else ''}")
+        if margin < 0.10:
+            st.warning(
+                "**Borderline.** The score sits close to the threshold. Treat "
+                "this as inconclusive rather than as evidence either way.",
+                icon="⚠️",
+            )
+
+    if show_cam:
+        st.divider()
+        section(
+            "Where each backbone looked",
+            "Gradient of the *manipulated* score. Bright regions pushed the model "
+            "toward calling this image fake. The branches are fused by "
+            "concatenation, so no single weighted ensemble map exists — the mean "
+            "is a summary, not an attribution.",
+        )
+        try:
+            from openforensics.evaluation import explain
+            with st.spinner("Computing explanations…"):
+                cams = explain.all_branches(model, x, size=IMG_SIZE)
+            if not cams:
+                raise RuntimeError("no addressable backbone in this checkpoint")
+            cols = st.columns(len(cams))
+            for col, (name, hm) in zip(cols, cams.items()):
+                with col:
+                    st.image(explain.overlay(x[0], hm), use_container_width=True)
+                    st.caption(f"**{name}**" if name != "mean" else "**mean** (summary)")
+        except Exception as exc:
+            st.warning(f"Grad-CAM unavailable: {type(exc).__name__}: {exc}")
