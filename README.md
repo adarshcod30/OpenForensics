@@ -33,7 +33,7 @@ then the top ~50 layers of each backbone at a lower learning rate with
 ```bash
 conda create -n openforensics python=3.11 -y
 conda activate openforensics
-pip install -r requirements.txt
+pip install -e ".[train]"   # serving deps only: pip install -r requirements.txt
 ```
 
 TensorFlow is pinned to 2.19 (Keras 3). Apple Silicon gets GPU acceleration
