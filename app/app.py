@@ -18,7 +18,13 @@ import numpy as np
 import streamlit as st
 from PIL import Image
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+# Layout-agnostic: the repo keeps the package at ../src/openforensics, while
+# a Hugging Face Space puts app.py and src/ side by side at the root.
+_here = Path(__file__).resolve().parent
+for _candidate in (_here.parent / "src", _here / "src", _here.parent):
+    if (_candidate / "openforensics").is_dir():
+        sys.path.insert(0, str(_candidate))
+        break
 
 st.set_page_config(page_title="OpenForensics — Deepfake Detector",
                    page_icon="🔬", layout="wide")
