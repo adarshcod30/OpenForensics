@@ -2,6 +2,10 @@
 # Cloud and Hugging Face Spaces install, and both are memory-constrained.
 # Training extras live in requirements-train.txt.
 
+# Requires Python 3.9-3.12: TensorFlow 2.19.1 publishes cp39-cp312 wheels and
+# no cp313, so a 3.13 runtime fails at install with "no matching
+# distribution" and the app never starts. See .python-version.
+#
 # TF 2.19 ships Keras 3. The published checkpoints are written by Keras 3.12,
 # so a Keras 2 install (tensorflow < 2.16) cannot deserialise them at all --
 # it fails on `keras.src.models.functional`. Do not lower this pin.
