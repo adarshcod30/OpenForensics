@@ -1,12 +1,16 @@
 [theme]
-base="dark"
-primaryColor="#2E86C1"
-font="sans serif"
+base = "dark"
+primaryColor = "#2E9EB8"
+backgroundColor = "#0E1418"
+secondaryBackgroundColor = "#161E23"
+textColor = "#E8EDF0"
+font = "sans serif"
 
 [server]
-# Enable detailed error messages in the browser
+# Tracebacks stay off in the deployed app; pages surface their own errors
+# with actionable text instead.
 showErrorDetails = false
+maxUploadSize = 20
 
 [browser]
-# Enable gathering usage statistics globally (if deployed)
 gatherUsageStats = false
