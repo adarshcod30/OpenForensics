@@ -17,6 +17,27 @@ with a calibrated confidence score, per-backbone visual explanations, and the ev
 
 ---
 
+> ## ⚠️ Scope: face swaps, not AI-generated images
+>
+> OpenForensics builds a fake by **Poisson-blending a GAN-generated face into a
+> real photograph**. This model therefore learns to find the *seam* left by that
+> compositing — the blending boundary, the colour and lighting mismatch at the
+> edge, the resampled patch.
+>
+> An image generated whole by a diffusion model has no seam, because nothing was
+> inserted. Measured on ChatGPT and Gemini output, **10 of 10 were classified as
+> Real, most scoring above 0.999** — more confidently "genuine" than many actual
+> photographs. The same model scored 0.9667 on dataset images in the same run, so
+> this is not a defect; it is the model correctly answering the question it was
+> trained on.
+>
+> **A high P(genuine) here is not evidence that an image is not AI-generated.**
+> Detecting fully synthetic images is a different problem — it looks for generator
+> fingerprints spread across every pixel, rather than a splice boundary — and
+> needs a model trained for it.
+
+---
+
 ## Results
 
 Held-out test split — 2,000 images, content-hash deduplicated against train and validation,
@@ -283,12 +304,14 @@ the repository or a run directory — neither of which exists on a hosting platf
 
 ## Limitations
 
+- **Face swaps only — not AI-generated images.** See the scope notice at the top. Fully synthetic
+  images are reported as genuine with high confidence.
 - **Face crops only.** Behaviour on full scenes, multiple faces or non-face images is undefined —
   there is no face detector in the pipeline.
 - **One dataset.** Cross-dataset performance is unmeasured, and the literature is consistent that
   it drops sharply.
 - **Predates current generators.** OpenForensics was released in 2021; recent diffusion-based
-  manipulations are out of distribution.
+  manipulations are out of distribution, and this is the direct cause of the scope limit above.
 - **A margin is not a verdict.** A score near the threshold is inconclusive.
 - **Not a forensic authority.** Research and educational use. A prediction is evidence to weigh,
   not proof.
