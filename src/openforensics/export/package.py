@@ -183,6 +183,19 @@ A multi-backbone CNN ensemble that classifies face crops as **Real** or
 **Fake**. Backbones: {', '.join(backbones)}. Their pooled embeddings are
 concatenated and read by a shared classifier head.
 
+> ### ⚠️ Scope: face swaps, not AI-generated images
+>
+> Trained on OpenForensics, where a fake is a GAN face **Poisson-blended into
+> a real photograph**. The model therefore looks for the *seam* left by that
+> compositing. An image generated whole by a diffusion model — ChatGPT,
+> Gemini, Midjourney, Stable Diffusion — has no seam, and this model calls it
+> genuine: measured on ChatGPT and Gemini output, **10 of 10 were classified
+> as Real, most scoring above 0.999**.
+>
+> **A high `probability_real` is not evidence that an image is not
+> AI-generated.** For that you need a synthetic-image detector, which is a
+> different problem with different features.
+
 ## Output
 
 A single sigmoid: **P(Real)**. Fake is `1 - p`.
@@ -231,11 +244,15 @@ The face-cropped OpenForensics distribution (190,334 images at 256x256).
 {robustness}
 ## Limitations
 
+- **Face swaps only.** See the scope notice above: fully AI-generated images
+  are outside what this model can detect, and it reports them as genuine with
+  high confidence.
 - Trained on **face crops**. Behaviour on full scenes or non-face images is
   undefined.
 - A score near the threshold is not evidence. Treat the margin as part of
   the output.
-- Performance degrades on manipulation methods absent from OpenForensics.
+- Performance degrades on manipulation methods absent from OpenForensics,
+  which was released in 2021 and predates current diffusion generators.
 - Research and educational use. Not a forensic authority.
 {shift_prose}
 

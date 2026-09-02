@@ -18,6 +18,12 @@ def render():
     st.divider()
     section("Limitations", "Read these before relying on any single prediction.")
     for title, body in [
+        ("Face swaps only — not AI-generated images",
+         "Trained on faces composited into real photographs, so it looks for the "
+         "seam where one image was blended into another. An image generated whole "
+         "by a diffusion model has no seam: measured on ChatGPT and Gemini output, "
+         "10 of 10 were called genuine, most above 0.999. A high genuine score is "
+         "not evidence that an image is not AI-generated."),
         ("Face crops only",
          "Trained on tight crops. Behaviour on full scenes, multiple faces or "
          "non-face images is undefined — there is no face detector in the pipeline."),

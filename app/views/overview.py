@@ -27,6 +27,8 @@ def render():
     c[3].metric("False accusations", f"{m['false_accusation_rate']*100:.1f}%",
                 help="Genuine images the model calls fake. The number that matters most when the output is an accusation.")
 
+    st.warning("**This detects face swaps, not AI-generated images.** It was trained on faces composited into real photographs, so it looks for the *seam* where one image was blended into another. A picture generated whole by ChatGPT, Gemini, Midjourney or similar has no seam, and this model calls it genuine — measured at 10 out of 10, most scoring above 0.999. **A high genuine score here is not evidence that an image is not AI-generated.**", icon="⚠️")
+
     st.divider()
 
     left, right = st.columns([3, 2])
