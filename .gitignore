@@ -34,3 +34,9 @@ tensorboard/
 
 # Local virtualenv (the project uses a conda env; see README)
 venv/
+
+# local agent and editor files, never committed
+.claude.json
+CLAUDE.local.md
+CLAUDE.md
+AGENTS.md
