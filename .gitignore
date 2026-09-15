@@ -33,3 +33,8 @@ tensorboard/
 
 # Local virtualenv (the project uses a conda env; see README)
 venv/
+
+# secrets, build output and local noise
+.env
+.env.local
+.venv/
